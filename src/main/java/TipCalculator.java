@@ -35,7 +35,7 @@ public class TipCalculator {
                     case "2", "summary" -> monthlySummary(scanner);
                     case "3", "list" -> listShifts(scanner);
                     case "4", "delete", "del" -> deleteShiftByDateFlow(scanner);
-                    case "5", "exit", "quit", "q" -> {
+                    case "5", "exit" -> {
                         System.out.println("Goodbye!");
                         return;
                     }
@@ -57,7 +57,6 @@ public class TipCalculator {
         System.out.println("3. List shifts for a month");
         System.out.println("4. Delete a shift (by date)");
         System.out.println("5. Exit");
-        System.out.println("Commands: log, summary, list, delete, help, exit");
     }
 
     private static void printHelp() {
@@ -72,16 +71,23 @@ public class TipCalculator {
         System.out.println("  summary   -> Monthly summary");
         System.out.println("  list      -> List shifts");
         System.out.println("  delete    -> Delete shifts by date");
-        System.out.println("  exit      -> Quit");
+        System.out.println("  exit      -> Quit (or cancel a menu prompt)");
+    }
+
+    // ================= EXIT KEYWORD =================
+
+    private static boolean isExit(String input) {
+        return input != null && input.equalsIgnoreCase("exit");
     }
 
     // ================= OPTION 1: LOG SHIFT =================
 
     private static void logShift(Scanner scanner) {
-        int roleChoice = readIntInRange(scanner,
+        Integer roleChoice = readIntInRange(scanner,
             "\nChoose your role:\n1. Server\n2. Host\n3. TA\nChoose (1-3): ",
             1, 3
         );
+        if (roleChoice == null) return; // user typed "exit"
 
         String role;
         double wageRate;
@@ -103,15 +109,18 @@ public class TipCalculator {
         }
 
         LocalDate date = readDate(scanner, "Enter date (YYYY-MM-DD) or press Enter for today: ");
+        if (date == null) return; // user typed "exit"
 
-        double tips;
+        Double tips;
         if (role.equals("TA")) {
             tips = 0.0;
         } else {
             tips = readDoubleMin(scanner, "Tips made tonight ($): ", 0.0);
+            if (tips == null) return; // user typed "exit"
         }
 
-        double hoursWorked = readDoubleMin(scanner, "Hours worked tonight: ", 0.01);
+        Double hoursWorked = readDoubleMin(scanner, "Hours worked tonight: ", 0.01);
+        if (hoursWorked == null) return; // user typed "exit"
 
         double wageEarnings = wageRate * hoursWorked;
         double totalEarnings = wageEarnings + tips;
@@ -134,6 +143,8 @@ public class TipCalculator {
 
     private static void monthlySummary(Scanner scanner) {
         YearMonth ym = readYearMonth(scanner, "Enter month (YYYY-MM): ");
+        if (ym == null) return; // user typed "exit"
+
         MonthlySummary ms = getMonthlySummary(ym);
 
         NumberFormat currency = NumberFormat.getCurrencyInstance(Locale.US);
@@ -156,6 +167,8 @@ public class TipCalculator {
 
     private static void listShifts(Scanner scanner) {
         YearMonth ym = readYearMonth(scanner, "Enter month (YYYY-MM): ");
+        if (ym == null) return; // user typed "exit"
+
         listShiftsForMonth(ym);
     }
 
@@ -163,6 +176,8 @@ public class TipCalculator {
 
     private static void deleteShiftByDateFlow(Scanner scanner) {
         LocalDate date = readDate(scanner, "Enter shift date to delete (YYYY-MM-DD): ");
+        if (date == null) return; // user typed "exit"
+
         int rowsDeleted = deleteShiftsByDate(date);
 
         if (rowsDeleted > 0) {
@@ -278,13 +293,18 @@ public class TipCalculator {
             ps.setString(2, ym.atEndOfMonth().toString());
 
             try (ResultSet rs = ps.executeQuery()) {
+                boolean any = false;
                 while (rs.next()) {
+                    any = true;
                     System.out.println(
                         "[" + rs.getString(1) + "] " + rs.getString(2)
                         + " | Hours: " + round2(rs.getDouble(3))
                         + " | Tips: " + currency.format(rs.getDouble(4))
                         + " | Wage: " + currency.format(rs.getDouble(5))
                     );
+                }
+                if (!any) {
+                    System.out.println("No shifts found for " + ym + ".");
                 }
             }
 
@@ -295,33 +315,46 @@ public class TipCalculator {
 
     // ================= HELPERS =================
 
-    private static int readIntInRange(Scanner s, String p, int min, int max) {
+    private static Integer readIntInRange(Scanner s, String p, int min, int max) {
         while (true) {
-            System.out.print(p);
+            System.out.print(p + " (type 'exit' to cancel): ");
+            String input = s.nextLine().trim();
+
+            if (isExit(input)) return null;
+
             try {
-                int v = Integer.parseInt(s.nextLine().trim());
+                int v = Integer.parseInt(input);
                 if (v >= min && v <= max) return v;
             } catch (Exception ignored) {}
+
             System.out.println("Invalid input.");
         }
     }
 
-    private static double readDoubleMin(Scanner s, String p, double min) {
+    private static Double readDoubleMin(Scanner s, String p, double min) {
         while (true) {
-            System.out.print(p);
+            System.out.print(p + " (type 'exit' to cancel): ");
+            String input = s.nextLine().trim();
+
+            if (isExit(input)) return null;
+
             try {
-                double v = Double.parseDouble(s.nextLine().trim());
+                double v = Double.parseDouble(input);
                 if (v >= min) return v;
             } catch (Exception ignored) {}
+
             System.out.println("Invalid input.");
         }
     }
 
     private static LocalDate readDate(Scanner s, String p) {
         while (true) {
-            System.out.print(p);
+            System.out.print(p + " (type 'exit' to cancel): ");
             String v = s.nextLine().trim();
+
+            if (isExit(v)) return null;
             if (v.isEmpty()) return LocalDate.now();
+
             try {
                 return LocalDate.parse(v);
             } catch (Exception e) {
@@ -332,9 +365,13 @@ public class TipCalculator {
 
     private static YearMonth readYearMonth(Scanner s, String p) {
         while (true) {
-            System.out.print(p);
+            System.out.print(p + " (type 'exit' to cancel): ");
+            String input = s.nextLine().trim();
+
+            if (isExit(input)) return null;
+
             try {
-                return YearMonth.parse(s.nextLine().trim());
+                return YearMonth.parse(input);
             } catch (Exception e) {
                 System.out.println("Invalid month.");
             }
